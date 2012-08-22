@@ -205,6 +205,7 @@ public class VertexArray implements VertexData {
 	public void unbind (ShaderProgram shader) {
 		GL20 gl = Gdx.gl20;
 		int numAttributes = attributes.size();
+		shader.checkManaged();
 		for (int i = 0; i < numAttributes; i++) {
 			VertexAttribute attribute = attributes.get(i);
 			int location = shader.fetchAttributeLocation(attribute.alias);
