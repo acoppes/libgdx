@@ -44,6 +44,7 @@ public class VertexArray implements VertexData {
 	final FloatBuffer buffer;
 	final ByteBuffer byteBuffer;
 	boolean isBound = false;
+	final int[] attributeLocations;
 
 	/** Constructs a new interleaved VertexArray
 	 * 
@@ -63,6 +64,7 @@ public class VertexArray implements VertexData {
 		buffer = byteBuffer.asFloatBuffer();
 		buffer.flip();
 		byteBuffer.flip();
+		attributeLocations = new int[attributes.size()];
 	}
 
 	/** {@inheritDoc} */
@@ -184,9 +186,9 @@ public class VertexArray implements VertexData {
 		shader.checkManaged();
 		for (int i = 0; i < numAttributes; i++) {
 			VertexAttribute attribute = attributes.get(i);
-			int location = shader.fetchAttributeLocation(attribute.alias);
-			if (location == -1) continue;
-			shader.enableVertexAttribute(location);
+			attributeLocations[i] = shader.fetchAttributeLocation(attribute.alias);
+			if (attributeLocations[i] == -1) continue;
+			shader.enableVertexAttribute(attributeLocations[i]);
 			int colorType = GL20.GL_FLOAT;
 			boolean normalize = false;
 			if (attribute.usage == Usage.ColorPacked) {
@@ -194,7 +196,7 @@ public class VertexArray implements VertexData {
 				normalize = true;
 			}
 			byteBuffer.position(attribute.offset);
-			shader.setVertexAttribute(location, attribute.numComponents, colorType, normalize, attributes.vertexSize, byteBuffer);
+			shader.setVertexAttribute(attributeLocations[i], attribute.numComponents, colorType, normalize, attributes.vertexSize, byteBuffer);
 		}
 		isBound = true;
 	}
@@ -205,12 +207,10 @@ public class VertexArray implements VertexData {
 	public void unbind (ShaderProgram shader) {
 		GL20 gl = Gdx.gl20;
 		int numAttributes = attributes.size();
-		shader.checkManaged();
 		for (int i = 0; i < numAttributes; i++) {
 			VertexAttribute attribute = attributes.get(i);
-			int location = shader.fetchAttributeLocation(attribute.alias);
-			if (location == -1) continue;
-			shader.disableVertexAttribute(location);
+			if (attributeLocations[i] == -1) continue;
+			shader.disableVertexAttribute(attributeLocations[i]);
 		}
 		isBound = false;
 	}
