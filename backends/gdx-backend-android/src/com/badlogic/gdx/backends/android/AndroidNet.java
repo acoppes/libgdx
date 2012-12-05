@@ -16,7 +16,10 @@
 
 package com.badlogic.gdx.backends.android;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringWriter;
+import java.io.UnsupportedEncodingException;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -28,7 +31,11 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.InputStreamEntity;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
 import org.apache.http.util.EntityUtils;
 
 import android.content.Intent;
@@ -41,6 +48,7 @@ import com.badlogic.gdx.net.ServerSocketHints;
 import com.badlogic.gdx.net.Socket;
 import com.badlogic.gdx.net.SocketHints;
 import com.badlogic.gdx.utils.GdxRuntimeException;
+import com.badlogic.gdx.utils.JsonWriter;
 
 public class AndroidNet implements Net {
 
@@ -74,7 +82,11 @@ public class AndroidNet implements Net {
 
 		@Override
 		public byte[] getResult () {
-			throw new UnsupportedOperationException("get result as byte[] is not implemented");
+			try {
+				return EntityUtils.toByteArray(httpResponse.getEntity());
+			} catch (Exception e) {
+				throw new GdxRuntimeException("Failed to retrieve byte array from response", e);
+			}
 		}
 
 		@Override
@@ -90,7 +102,7 @@ public class AndroidNet implements Net {
 
 	private final ExecutorService executorService;
 
-	HttpClient httpClient;
+	DefaultHttpClient httpClient; 
 
 	public AndroidNet (AndroidApplication activity) {
 		app = activity;
@@ -100,12 +112,20 @@ public class AndroidNet implements Net {
 
 	@Override
 	public void sendHttpRequest (HttpRequest httpRequest, final HttpResponseListener httpResultListener) {
-		if (httpRequest.getUrl() == null) throw new GdxRuntimeException("can't process a HTTP request without URL set");
+		if (httpRequest.getUrl() == null) { 
+			httpResultListener.failed(new GdxRuntimeException("can't process a HTTP request without URL set"));
+			return;
+		}
 
 		final HttpUriRequest httpClientRequest = getHttpClientRequest(httpRequest);
 
-		// Don't know where to use the timeout exactly yet :)
-
+		final HttpParams httpParams = new BasicHttpParams();
+		
+		// Sets the timeout for time until TCP connection is established and timeout until first byte received to request timeout value 
+		HttpConnectionParams.setConnectionTimeout(httpParams, httpRequest.getTimeout());
+		HttpConnectionParams.setSoTimeout(httpParams, httpRequest.getTimeout());
+		httpClient.setParams(httpParams);
+		
 		executorService.submit(new Runnable() {
 			@Override
 			public void run () {
@@ -146,21 +166,22 @@ public class AndroidNet implements Net {
 	}
 
 	private HttpUriRequest convertHttpClientRequest (HttpRequest httpRequest) {
+		String content = httpRequest.convertHttpRequest();
+		
 		if (httpRequest.getMethod().equalsIgnoreCase(HttpMethods.GET)) {
-			// process specific HTTP GET logic
-			return new HttpGet(httpRequest.getUrl());
-		} else if (httpRequest.getMethod().equalsIgnoreCase(HttpMethods.POST)) {
+			return new HttpGet(httpRequest.getUrl().concat(content));
+		} 
+		else if (httpRequest.getMethod().equalsIgnoreCase(HttpMethods.POST) || 
+			httpRequest.getMethod().equalsIgnoreCase(HttpMethods.JSON)) {
 			// process specific HTTP POST logic
 			HttpPost httpPost = new HttpPost(httpRequest.getUrl());
-
-			byte[] contentAsByteArray = httpRequest.getContent();
-			InputStream contentStream = httpRequest.getContentStream();
-
-			if (contentAsByteArray != null)
-				httpPost.setEntity(new ByteArrayEntity(contentAsByteArray));
-			else if (contentStream != null) httpPost.setEntity(new InputStreamEntity(contentStream, -1));
-
-			return httpPost;
+			
+			try {
+				httpPost.setEntity(new StringEntity(content));
+				return httpPost;
+			} catch (UnsupportedEncodingException e) {
+				return httpPost;
+			}
 		} else {
 			throw new GdxRuntimeException("Android implementation of Net API can't support other HTTP methods yet.");
 		}
