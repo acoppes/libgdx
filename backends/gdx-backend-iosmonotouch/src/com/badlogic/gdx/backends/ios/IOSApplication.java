@@ -18,7 +18,6 @@ package com.badlogic.gdx.backends.ios;
 
 import java.util.ArrayList;
 
-import cli.MonoTouch.Foundation.NSBundle;
 import cli.MonoTouch.Foundation.NSDictionary;
 import cli.MonoTouch.Foundation.NSMutableDictionary;
 import cli.MonoTouch.UIKit.UIApplication;
@@ -46,40 +45,40 @@ import com.badlogic.gdx.Preferences;
 import com.badlogic.gdx.utils.Clipboard;
 
 public class IOSApplication extends UIApplicationDelegate implements Application {
-	
-	class IOSUIViewController extends UIViewController {
-		@Override
-		public void DidRotate (UIInterfaceOrientation orientation) {
-			// get the view size and update graphics
-			// FIXME: supporting BOTH (landscape+portrait at same time) is currently not working correctly (needs fix)
-			// FIXME screen orientation needs to be stored for Input#getNativeOrientation
-			RectangleF bounds = getBounds(this);
-			graphics.width = (int)bounds.get_Width();
-			graphics.height = (int)bounds.get_Height();
-			graphics.MakeCurrent(); // not sure if that's needed? badlogic: yes it is, so resize can do OpenGL stuff, not sure if
-// it's on the correct thread though
-			listener.resize(graphics.width, graphics.height);
-		}
 
-		@Override
-		public boolean ShouldAutorotateToInterfaceOrientation (UIInterfaceOrientation orientation) {
-			// we return "true" if we support the orientation
-			switch (orientation.Value) {
-			case UIInterfaceOrientation.LandscapeLeft:
-			case UIInterfaceOrientation.LandscapeRight:
-				return config.orientationLandscape;
-			default:
-				// assume portrait
-				return config.orientationPortrait;
-			}
-		}
-	}
+//	class IOSUIViewController extends UIViewController {
+//		@Override
+//		public void DidRotate (UIInterfaceOrientation orientation) {
+//			// get the view size and update graphics
+//			// FIXME: supporting BOTH (landscape+portrait at same time) is currently not working correctly (needs fix)
+//			// FIXME screen orientation needs to be stored for Input#getNativeOrientation
+//			RectangleF bounds = getBounds(this);
+//			graphics.width = (int)bounds.get_Width();
+//			graphics.height = (int)bounds.get_Height();
+//			graphics.MakeCurrent(); // not sure if that's needed? badlogic: yes it is, so resize can do OpenGL stuff, not sure if
+//// it's on the correct thread though
+//			listener.resize(graphics.width, graphics.height);
+//		}
+//
+//		@Override
+//		public boolean ShouldAutorotateToInterfaceOrientation (UIInterfaceOrientation orientation) {
+//			// we return "true" if we support the orientation
+//			switch (orientation.Value) {
+//			case UIInterfaceOrientation.LandscapeLeft:
+//			case UIInterfaceOrientation.LandscapeRight:
+//				return config.orientationLandscape;
+//			default:
+//				// assume portrait
+//				return config.orientationPortrait;
+//			}
+//		}
+//	}
 
 	UIApplication uiApp;
 	UIWindow uiWindow;
 	ApplicationListener listener;
 	IOSApplicationConfiguration config;
-	IOSGraphics graphics;
+	IOSGraphics2 graphics;
 	IOSAudio audio;
 	IOSFiles files;
 	IOSInput input;
@@ -120,8 +119,7 @@ public class IOSApplication extends UIApplicationDelegate implements Application
 				// it's an iPod or iPhone
 				displayScaleFactor = config.displayScaleSmallScreenIfRetina * 2.0f;
 			}
-		} 
-		else {
+		} else {
 			// no retina screen: no scaling!
 			if (UIDevice.get_CurrentDevice().get_UserInterfaceIdiom().Value == UIUserInterfaceIdiom.Pad) {
 				// it's an iPad!
@@ -132,14 +130,19 @@ public class IOSApplication extends UIApplicationDelegate implements Application
 			}
 		}
 
+		this.input = new IOSInput(this);
+
 		// Create: Window -> ViewController-> GameView (controller takes care of rotation)
-		this.uiWindow = new UIWindow(UIScreen.get_MainScreen().get_Bounds());
-		UIViewController uiViewController = new IOSUIViewController();
+		RectangleF bounds = UIScreen.get_MainScreen().get_Bounds();
+
+		this.uiWindow = new UIWindow(bounds);
+		// UIViewController uiViewController = new IOSUIViewController();
+		UIViewController uiViewController = new IOSGLKViewController(config, input, this);
 		this.uiWindow.set_RootViewController(uiViewController);
 
 		// setup libgdx
-		this.input = new IOSInput(this);
-		this.graphics = new IOSGraphics(getBounds(uiViewController), this, input);
+// this.graphics = new IOSGraphics(getBounds(uiViewController), this, input);
+		this.graphics = new IOSGraphics2((int)bounds.get_Width(), (int)bounds.get_Height());
 		this.files = new IOSFiles();
 		this.audio = new IOSAudio();
 		this.net = new IOSNet(this);
@@ -153,8 +156,10 @@ public class IOSApplication extends UIApplicationDelegate implements Application
 		this.input.setupPeripherals();
 
 		// attach our view to window+controller and make it visible
-		uiViewController.set_View(graphics);
-		this.graphics.Run();
+		
+//		uiViewController.set_View(graphics);
+//		this.graphics.Run();
+		
 		this.uiWindow.MakeKeyAndVisible();
 		Gdx.app.debug("IOSApplication", "created");
 		return true;
@@ -184,7 +189,7 @@ public class IOSApplication extends UIApplicationDelegate implements Application
 			height = (int)bounds.get_Height();
 		}
 
-		// update width/height depending on display scaling selected 
+		// update width/height depending on display scaling selected
 		width *= displayScaleFactor;
 		height *= displayScaleFactor;
 
@@ -199,7 +204,7 @@ public class IOSApplication extends UIApplicationDelegate implements Application
 	public void OnActivated (UIApplication uiApp) {
 		Gdx.app.debug("IOSApplication", "resumed");
 		if (!firstResume) {
-			graphics.MakeCurrent();
+//			graphics.MakeCurrent();
 			listener.resume();
 			firstResume = true;
 		}
@@ -208,7 +213,7 @@ public class IOSApplication extends UIApplicationDelegate implements Application
 	@Override
 	public void OnResignActivation (UIApplication uiApp) {
 		Gdx.app.debug("IOSApplication", "paused");
-		graphics.MakeCurrent();
+//		graphics.MakeCurrent();
 		listener.pause();
 		Gdx.gl.glFlush();
 	}
@@ -216,7 +221,7 @@ public class IOSApplication extends UIApplicationDelegate implements Application
 	@Override
 	public void WillTerminate (UIApplication uiApp) {
 		Gdx.app.debug("IOSApplication", "disposed");
-		graphics.MakeCurrent();
+//		graphics.MakeCurrent();
 		listener.dispose();
 		Gdx.gl.glFlush();
 	}
@@ -321,10 +326,10 @@ public class IOSApplication extends UIApplicationDelegate implements Application
 
 	@Override
 	public Preferences getPreferences (String name) {
-		String applicationPath = Environment.GetFolderPath (Environment.SpecialFolder.wrap(Environment.SpecialFolder.MyDocuments));
+		String applicationPath = Environment.GetFolderPath(Environment.SpecialFolder.wrap(Environment.SpecialFolder.MyDocuments));
 		String libraryPath = Path.Combine(applicationPath, "..", "Library");
 		String finalPath = Path.Combine(libraryPath, name + ".plist");
-		
+
 		Gdx.app.debug("IOSApplication", "Loading NSDictionary from file " + finalPath);
 		NSMutableDictionary nsDictionary = NSMutableDictionary.FromFile(finalPath);
 
@@ -335,7 +340,7 @@ public class IOSApplication extends UIApplicationDelegate implements Application
 			boolean fileWritten = nsDictionary.WriteToFile(finalPath, false);
 			if (fileWritten)
 				Gdx.app.debug("IOSApplication", "NSDictionary file written");
-			else 
+			else
 				Gdx.app.debug("IOSApplication", "Failed to write NSDictionary to file " + finalPath);
 		}
 		return new IOSPreferences(nsDictionary, finalPath);
