@@ -59,12 +59,15 @@ public class IOSGLKViewController extends GLKViewController {
 
 		lastFrameTime = System.nanoTime();
 		framesStart = lastFrameTime;
+		
+		iosApplication.listener.create();
 	}
 
 	@Override
 	public void ViewDidUnload () {
 		super.ViewDidUnload();
 		if (EAGLContext.get_CurrentContext() == context) EAGLContext.SetCurrentContext(null);
+		iosApplication.listener.dispose();
 	}
 
 	long lastFrameTime;

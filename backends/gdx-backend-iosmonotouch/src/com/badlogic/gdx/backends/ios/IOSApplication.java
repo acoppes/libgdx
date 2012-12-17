@@ -152,7 +152,7 @@ public class IOSApplication extends UIApplicationDelegate implements Application
 		Gdx.audio = this.audio;
 		Gdx.input = this.input;
 		Gdx.net = this.net;
-
+		
 		this.input.setupPeripherals();
 
 		// attach our view to window+controller and make it visible
