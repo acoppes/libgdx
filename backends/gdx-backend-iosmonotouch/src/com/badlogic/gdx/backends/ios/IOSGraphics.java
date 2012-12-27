@@ -64,6 +64,7 @@ public class IOSGraphics extends iPhoneOSGameView implements Graphics {
 	private float density = 1;
 
 	volatile boolean paused;
+	volatile boolean created;
 	boolean wasPaused;
 
 	public IOSGraphics (RectangleF bounds, IOSApplication app, IOSInput input, GL20 gl20) {
@@ -113,6 +114,7 @@ public class IOSGraphics extends iPhoneOSGameView implements Graphics {
 		framesStart = lastFrameTime;
 
 		paused = false;
+		created = false;
 		wasPaused = true;
 	}
 
@@ -120,13 +122,6 @@ public class IOSGraphics extends iPhoneOSGameView implements Graphics {
 	protected void ConfigureLayer (CAEAGLLayer layer) {
 		layer.set_Opaque(true);
 		super.ConfigureLayer(layer);
-	}
-
-	@Override
-	protected void OnLoad (EventArgs arg0) {
-		super.OnLoad(arg0);
-		MakeCurrent();
-		app.listener.create();
 	}
 
 	public void resume () {
@@ -140,6 +135,11 @@ public class IOSGraphics extends iPhoneOSGameView implements Graphics {
 	@Override
 	protected void OnRenderFrame (FrameEventArgs arg0) {
 		super.OnRenderFrame(arg0);
+		
+		if (!created) {
+			app.listener.create();
+			created = true;
+		}
 
 		if (paused) {
 			if (!wasPaused) {
